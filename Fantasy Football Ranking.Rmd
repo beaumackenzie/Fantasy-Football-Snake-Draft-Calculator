@@ -1,0 +1,723 @@
+```{r}
+
+
+
+library(rvest)
+
+library(dplyr)
+
+library(stringr)
+
+
+lines <- read.csv("Fantasy Football Rankings.csv")
+
+
+lines <- lines[rep(c(TRUE, FALSE, TRUE, TRUE, FALSE, TRUE, FALSE)),]
+
+
+noreg <- function(x) {
+  
+  sub(" Regular Season.*", "", x)
+  
+}
+
+
+noover <- function(x) {
+  
+  sub(".*Over ", "", x)
+  
+}
+
+
+
+lines <- data.frame(lapply(lines, noreg))
+
+lines <- data.frame(lapply(lines, noover))
+
+
+m <- 1
+while(m <= ncol(lines)){
+  i <- 2
+  j <- 0
+  while(j != 1){
+    
+    if(as.numeric(lines[i+1,m]) <= -130){
+      
+      lines[i,m] <- as.numeric(lines[i,m])*1.05
+      
+    } 
+    
+    if(as.numeric(lines[i+2,m]) <= -130){
+      
+      lines[i,m] <- as.numeric(lines[i,m])*.95
+      
+    }
+    
+    i <- i+4
+    if(nchar(lines[i,m]) < 1 | i > 244){
+      j <- 1
+    }
+  }
+  
+  m <- m+1
+}
+
+lines <- lines[rep(c(TRUE, TRUE, FALSE, FALSE)),]
+
+
+linesQBYards <- data.frame(lines$QB.Yards[seq(1,length(lines$QB.Yards),2)],lines$QB.Yards[seq(2,length(lines$QB.Yards),2)])
+colnames(linesQBYards) <- c("Player", "Yards")
+
+linesQBTDs <- data.frame(lines$QB.TDs[seq(1,length(lines$QB.TDs),2)],lines$QB.TDs[seq(2,length(lines$QB.TDs),2)])
+colnames(linesQBTDs) <- c("Player", "TDs")
+
+linesRushYards <- data.frame(lines$Rush.Yards[seq(1,length(lines$Rush.Yards),2)],lines$Rush.Yards[seq(2,length(lines$Rush.Yards),2)])
+colnames(linesRushYards) <- c("Player", "Yards")
+
+linesRushTDs <- data.frame(lines$Rush.TDs[seq(1,length(lines$Rush.TDs),2)],lines$Rush.TDs[seq(2,length(lines$Rush.TDs),2)])
+colnames(linesRushTDs) <- c("Player", "TDs")
+
+
+
+
+linesQBs <- linesQBYards %>% left_join(linesQBTDs, by = "Player") %>% left_join(linesRushTDs, by = "Player") %>% left_join(linesRushYards, by = "Player")
+
+linesQBs <- linesQBs[1:26,]
+
+linesQBs$ints <- c(6.5, 13.5, 10.5, 10.5, 11.5, 14.5, 12.5, 10.5, 11.5, 12.5, 11.5, 14.5, 13.5, 10.5, 12.5, 12.5, 12.5, 11.5, 13.5, 10.5, 10.5, 12.5, 11.5, 14.5, 10.5, 12.5)
+
+
+linesQBs$Yards.y[linesQBs$Player == "Lamar Jackson"] <- 525
+linesQBs$TDs.y[linesQBs$Player == "Daniel Jones"] <- 3
+linesQBs$TDs.y[linesQBs$Player == "Patrick Mahomes"] <- 3
+linesQBs$TDs.y[is.na(linesQBs$TDs.y) == TRUE] <- 1
+linesQBs$Yards.y[is.na(linesQBs$Yards.y)] <- 120
+
+
+linesQBs$Yards.x <- as.numeric(linesQBs$Yards.x)
+linesQBs$TDs.x <- as.numeric(linesQBs$TDs.x)
+linesQBs$Yards.y <- as.numeric(linesQBs$Yards.y)
+linesQBs$TDs.y <- as.numeric(linesQBs$TDs.y)
+
+
+linesRecYards <- data.frame(lines$Rec.Yards[seq(1,length(lines$Rec.Yards),2)],lines$Rec.Yards[seq(2,length(lines$Rec.Yards),2)])
+colnames(linesRecYards) <- c("Player", "Yards")
+
+
+linesRecTDs <- data.frame(lines$Rec.TDs[seq(1,length(lines$Rec.TDs),2)],lines$Rec.TDs[seq(2,length(lines$Rec.TDs),2)])
+colnames(linesRecTDs) <- c("Player", "TDs")
+
+
+linesReceptions <- data.frame(lines$Receptions[seq(1,length(lines$Receptions),2)],lines$Receptions[seq(2,length(lines$Receptions),2)])
+colnames(linesReceptions) <- c("Player", "Receptions")
+
+
+linesallpurpose <- data.frame(lines$All.Purpose[seq(1,length(lines$All.Purpose),2)],lines$All.Purpose[seq(2,length(lines$All.Purpose),2)])
+colnames(linesallpurpose) <- c("Player", "allpurpose")
+
+
+
+
+linesRBs <- linesRushTDs %>% left_join(linesRushYards, by = "Player") %>%  left_join(linesallpurpose, by = "Player") %>% left_join(linesRecTDs, by = "Player") %>% left_join(linesReceptions, by = "Player")
+
+
+linesRBs <- linesRBs %>% filter(!(Player %in% linesQBs$Player))
+
+linesRBs <- linesRBs[1:24,]
+
+linesRBs$TDs.x <- as.numeric(linesRBs$TDs.x)
+linesRBs$Yards <- as.numeric(linesRBs$Yards)
+linesRBs$allpurpose <- as.numeric(linesRBs$allpurpose)
+
+linesRBs$Yards[linesRBs$Player == "Aaron Jones"] <- 900
+
+linesRBs$Yards[linesRBs$Player == "Christian McCaffrey"] <- 975
+
+linesRBs$Yards[linesRBs$Player == "Saquon Barkley"] <- 925
+
+linesRBs$Yards[linesRBs$Player == "Damien Harris"] <- 900
+
+linesRBs$allpurpose <- ifelse(is.na(linesRBs$allpurpose), linesRBs$Yards + 210, linesRBs$allpurpose)
+
+linesRBs$allpurpose[linesRBs$Player == "Ezekiel Elliott"] <- linesRBs$Yards + 300
+
+linesRBs$allpurpose[linesRBs$Player == "AJ Dillon"] <- linesRBs$Yards + 275
+
+linesRBs$allpurpose[linesRBs$Player == "James Conner"] <- linesRBs$Yards + 300
+
+linesRBs$allpurpose[linesRBs$Player == "Josh Jacobs"] <- linesRBs$Yards + 300
+
+linesRBs$allpurpose[linesRBs$Player == "Derrick Henry"] <- 1350.5 + 150
+
+linesRBs$Receptions <- (linesRBs$allpurpose-linesRBs$Yards)/7
+
+linesRBs$TDs.y <- (linesRBs$allpurpose-linesRBs$Yards)/130
+
+linesWRs <- linesRecYards %>% left_join(linesRecTDs, by = "Player") %>% left_join(linesReceptions, by = "Player")
+
+
+linesWRs <- linesWRs[1:57,]
+
+linesWRs$Receptions <- as.numeric(linesWRs$Receptions)
+linesWRs$Yards <- as.numeric(linesWRs$Yards)
+linesWRs$TDs <- as.numeric(linesWRs$TDs)
+
+linesWRs$Receptions[linesWRs$Player == "Chris Olave"] <- 70
+
+
+linesWRs$Receptions[linesWRs$Player == "Julio Jones"] <- 50
+
+linesWRs$Receptions[linesWRs$Player == "Albert Okwuegbunam"] <- 50
+
+
+linesQBs$Pos <- "QB"
+
+linesRBs$Pos <- "RB"
+
+linesWRs$Pos <- "WR"
+
+linesWRs$Pos[linesWRs$Player %in% c("Travis Kelce", "Mark Andrews", "George Kittle", "Noah Fant", "Dallas Goedert", "T.J. Hockenson", "Zach Ertz", "Pat Freiermuth", "Dawson Knox", "Dalton Schultz", "Tyler Higbee", "Albert Okwuegbunam", "Cole Kmet", "Hunter Henry")] <- "TE"
+
+
+
+linesQBs$Points <- .04*linesQBs$Yards.x + 4*linesQBs$TDs.x + .1*linesQBs$Yards.y + 6*linesQBs$TDs.y + -2*linesQBs$ints
+
+linesRBs$Points <- .1*linesRBs$allpurpose + 6*linesRBs$TDs.x + 6*linesRBs$TDs.y + 1*linesRBs$Receptions
+
+linesWRs$Points <- .1*linesWRs$Yards + 6*linesWRs$TDs + 1*linesWRs$Receptions
+
+
+linesQBs <- linesQBs %>% select(Player, Points, Pos)
+linesQBs <- linesQBs[order(linesQBs$Points, decreasing = TRUE),]
+linesQBs <- linesQBs[1:12,]
+
+linesRBs <- linesRBs %>% select(Player, Points, Pos)
+
+linesWRs <- linesWRs %>% select(Player, Points, Pos)
+
+
+linesTEs <- linesWRs %>% filter(Pos == "TE")
+linesTEs <- linesTEs[order(linesTEs$Points, decreasing = TRUE),]
+#linesTEs <- linesTEs[1:12,]
+
+linesWRs <- linesWRs %>% filter(Pos != "TE")
+linesWRs <- linesWRs[order(linesWRs$Points, decreasing = TRUE),]
+#linesWRs <- linesWRs[1:36,]
+
+
+bigboard <- rbind(linesQBs, linesRBs, linesWRs, linesTEs)
+
+#bigboard <- bigboard %>% filter(!(Player %in% c("Derrick Henry", "Christian McCaffrey", "Derrick Henry", "Cooper Kupp", "Justin Jefferson", "Ja'Marr Chase", "Josh Allen", "Austin Ekeler", "Najee Harris", "Dalvin Cook", "Alvin Kamara", "Alvin Kamara", "Joe Mixon", "Aaron Jones", "Davante Adams", "Stefon Diggs", "Tyreek Hill", "Jonathan Taylor", "CeeDee Lamb", "D'Andre Swift", "Deebo Samuel", "Travis Kelce", "James Conner", "Tee Higgins", "Saquon Barkley", "Mike EVans", "Nick Chubb", "Mark Andrews", "Mike Evans", "Keenan Allen", "Michael Pittman Jr", "Diontae Johnson", "Jerry Jeudy", "DJ Moore", "Brandin Cooks", "Terry McLaurin", "Jaylen Waddle", "Darnell Mooney")))
+
+bigboard <- bigboard[order(bigboard$Points, decreasing = TRUE),]
+
+
+bigboard$Player[bigboard$Player == "Gabriel Davis"] <- "Gabe Davis"
+
+
+```
+
+
+```{r}
+
+
+myteam <- bigboard %>% filter(Player %in% c("Josh Allen", "D'Andre Swift", "Nick Chubb", "Brandin Cooks", "Darnell Mooney", "Zach Ertz", "Allen Robinson II"))
+sum(myteam$Points)
+
+theirteam <- bigboard %>% filter(Player %in% c("Dak Prescott", "Joe Mixon", "Aaron Jones", "A.J. Brown", "Terry McLaurin", "George Kittle", "Gabriel Davis"))
+sum(theirteam$Points)
+
+
+
+```
+
+
+```{r}
+
+#'[ Non-PPR
+#'
+#'* REMEMBER TO CHANGE RECPETIONS POINTS VALUES *
+
+library(stringi)
+espn <- read.csv("espn rankings STANDARD.csv")
+
+ranks <- na.omit(espn$X)
+ranks <- as.numeric(ranks)
+
+espn <- espn %>% select(-X, -X.1)
+
+espnpos <- espn[seq(5, length(espn$STATUS), 3),]
+espnpos <- stri_sub(espnpos, -2)
+
+espn <- data.frame(espn[seq(4, length(espn$STATUS), 3),])
+
+colnames(espn) <- "Player"
+
+espn$Player <- ifelse(stri_sub(espn$Player, -1) %in% c("Q", "O", "P", "D", "SSP"), substr(espn$Player,1,nchar(espn$Player)-1),espn$Player)
+
+espn$index <- seq(1,length(espn$Player), 1)
+
+
+espn <- left_join(espn, bigboard, by = "Player")
+
+espn <- espn[1:140,]
+
+
+espn$rank <- ranks[1:140]
+espn$espnpos <- espnpos[1:140]
+
+
+espn$Points <- ifelse(is.na(espn$Points), espn$rank, espn$Points)
+espn$Pos <- ifelse(is.na(espn$Pos), espn$espnpos, espn$Pos)
+
+espn <- espn %>% select(Player, index, Points, Pos)
+
+
+x <- (espn$Points - predict(lm(Points~as.factor(Pos), data = espn))) + 174.6
+y <- 2*(espn$Points - predict(lm(Points~as.factor(Pos), data = espn))) + 174.6
+z <- 1*(espn$Points - predict(lm(Points~as.factor(Pos), data = espn))) + 174.6
+
+espn$points <- ifelse(espn$Pos %in% c("RB", "WR"), y, x)
+espn$points <- ifelse(espn$Pos %in% c("TE"), z, espn$points)
+
+espn$draftorder <- rep(c(1,2,3,4,5,6,7,8,9,10,10,9,8,7,6,5,4,3,2,1), length(espn$Player)/20)
+
+#RB, WR times 2.5
+
+espn <- espn %>% filter(!(Pos %in% c("ST")) & !(Player %in% c()))
+
+
+
+espn <- espn %>% filter(index >= 0)
+
+#Pos != "QB"
+
+````
+
+
+
+
+```{r}
+
+
+
+#'[ Non-PPR trade value
+#'
+#'
+#'* REMEMBER TO CHANGE RECPETIONS POINTS VALUES *
+
+library(stringi)
+espn <- read.csv("espn rankings STANDARD.csv")
+
+ranks <- na.omit(espn$X)
+ranks <- as.numeric(ranks)
+
+espn <- espn %>% select(-X, -X.1)
+
+espnpos <- espn[seq(5, length(espn$STATUS), 3),]
+espnpos <- stri_sub(espnpos, -2)
+
+espn <- data.frame(espn[seq(4, length(espn$STATUS), 3),])
+
+colnames(espn) <- "Player"
+
+espn$Player <- ifelse(stri_sub(espn$Player, -1) %in% c("Q", "O", "P", "D", "SSP"), substr(espn$Player,1,nchar(espn$Player)-1),espn$Player)
+
+espn$index <- seq(1,length(espn$Player), 1)
+
+
+espn <- left_join(espn, bigboard, by = "Player")
+
+espn <- espn[1:140,]
+
+
+espn$rank <- ranks[1:140]
+espn$espnpos <- espnpos[1:140]
+
+espn <- na.omit(espn)
+
+
+espn$value <- espn$Points-espn$rank
+
+
+```
+
+
+
+
+
+```{r}
+
+
+#'* REMEMBER TO CHANGE RECPETIONS POINTS VALUES *
+
+library(dplyr)
+
+#'[ PPR
+
+library(stringi)
+espn <- read.csv("espn rankings PPR.csv")
+
+ranks <- na.omit(espn$X)
+ranks <- as.numeric(ranks)
+
+espn <- espn %>% select(-X, -X.1)
+
+espnpos <- espn[seq(5, length(espn$STATUS), 3),]
+espnpos <- stri_sub(espnpos, -2)
+
+espn <- data.frame(espn[seq(4, length(espn$STATUS), 3),])
+
+colnames(espn) <- "Player"
+
+espn$Player <- ifelse(stri_sub(espn$Player, -1) %in% c("Q", "O", "P", "D", "SSP"), substr(espn$Player,1,nchar(espn$Player)-1),espn$Player)
+
+espn$index <- seq(1,length(espn$Player), 1)
+
+
+espn <- left_join(espn, bigboard, by = "Player")
+
+espn <- espn[1:144,]
+
+
+espn$rank <- ranks[1:144]
+espn$espnpos <- espnpos[1:144]
+
+
+espn$Points <- ifelse(is.na(espn$Points), espn$rank, espn$Points)
+espn$Pos <- ifelse(is.na(espn$Pos), espn$espnpos, espn$Pos)
+
+espn <- espn %>% select(Player, index, Points, Pos)
+
+
+
+x <- (espn$Points - predict(lm(Points~as.factor(Pos), data = espn))) + 174.6
+y <- 2*(espn$Points - predict(lm(Points~as.factor(Pos), data = espn))) + 174.6
+z <- (espn$Points - predict(lm(Points~as.factor(Pos), data = espn))) + 174.6
+
+
+#'* Change after you have drafted the first RB/WR on your team*
+espn$points <- ifelse(espn$Pos %in% c("RB"), y, x)
+#espn$points <- ifelse(espn$Pos %in% c(), z, espn$points)
+
+
+espn$draftorder <- rep(c(1,2,3,4,5,6,7,8,9,10,11,12,12,11,10,9,8,7,6,5,4,3,2,1), length(espn$Player)/24)
+
+#RB, WR times 2.5
+
+
+#'* Change by player/pick*
+#'* For any player above the index but already drafted and for any player below the index and not drafted *
+
+espn <- espn %>% filter((index >= 0 & !(Player %in% c())) | Player %in% c())
+
+#'* Change this if you want to declutter QBs *
+
+espn <- espn %>% filter(!(Pos %in% c("ST")) & !(Player %in% c()))
+
+
+espn$ptsovrnext <- NA
+
+
+#'* Change this for the size of the league, the amount of picks between your current one two after that *
+
+nextpicks <- 23
+
+
+i <- 1
+while(i <= nrow(espn)-nextpicks){
+  
+  espn <- espn[order(espn$points, decreasing = TRUE),]
+  
+  next7 <- espn[i+max(nextpicks-i,0):nrow(espn),]
+
+  onlypos <- next7 %>% filter(Pos == espn$Pos[i])
+
+  espn$ptsovrnext[i] <- espn$points[i]-max(onlypos$points)
+  
+  i <- i+1
+  
+}
+
+
+espn[is.na(espn)] <- 0
+espn$ptsovrnext[as.numeric(espn$ptsovrnext) > 1000] <- 0
+
+
+#'* Change after you have filled a skill position role *
+espn$total <- ifelse(espn$Pos %in% c(), espn$points, espn$points+espn$ptsovrnext)
+
+
+
+# espn <- espn[order(espn$points, decreasing = TRUE),]
+# 
+# espn$rank2 <- seq(1,length(espn$Player), 1)
+# 
+# espn$value <- espn$index-espn$rank2
+
+#"WR", "RB"
+
+
+#Pos != "QB"
+
+
+#'[ Draft a kicker before a defense, whether its the best kicker, devners kicker, or an indoor kicker
+
+
+
+```
+
+
+
+```{r}
+
+library(dplyr)
+
+team1 <- espn %>% filter(Player %in% c("Justin Jefferson", "Travis Kelce", "Josh Allen", "AJ Dillon", "Amari Cooper", "Damien Harris", "Josh Jacobs"))
+
+team2 <- espn %>% filter(Player %in% c("Jalen Hurts", "Najee Harris", "Keenan Allen", "Mike Evans", "T.J. Hockenson", "Diontae Johnson", "Josh Jacobs"))
+
+team3 <- espn %>% filter(Player %in% c("Justin Jefferson", "Leonard Fournette", "Josh Allen", "AJ Dillon", "Josh Jacobs", "Darren Waller", "Adam Thielen"))
+
+
+team4 <- espn %>% filter(Player %in% c("Kyler Murray", "Saquon Barkley", "Antonio Gibson", "Marquise Brown", "Cooper Kupp", "Travis Kelce", "Elijah Moore"))
+
+
+
+4.7+8.3+26.1+31.48+39.4+17.9+7.8+10+5
+
+
+sum(team1$Points)
+
+sum(team2$Points)
+
+sum(team3$Points)
+
+sum(team4$Points)
+
+
+
+```
+
+
+
+
+```{r}
+
+
+
+
+#'[ PPR trade value
+#'
+#'
+#'* REMEMBER TO CHANGE RECPETIONS POINTS VALUES *
+
+library(stringi)
+espn <- read.csv("espn rankings PPR.csv")
+
+ranks <- na.omit(espn$X)
+ranks <- as.numeric(ranks)
+
+espn <- espn %>% select(-X, -X.1)
+
+espnpos <- espn[seq(5, length(espn$STATUS), 3),]
+espnpos <- stri_sub(espnpos, -2)
+
+espn <- data.frame(espn[seq(4, length(espn$STATUS), 3),])
+
+colnames(espn) <- "Player"
+
+espn$Player <- ifelse(stri_sub(espn$Player, -1) %in% c("Q", "O", "P", "D", "SSP"), substr(espn$Player,1,nchar(espn$Player)-1),espn$Player)
+
+espn$index <- seq(1,length(espn$Player), 1)
+
+
+espn <- left_join(espn, bigboard, by = "Player")
+
+espn <- espn[1:144,]
+
+
+espn$rank <- ranks[1:144]
+espn$espnpos <- espnpos[1:144]
+
+espn <- na.omit(espn)
+
+
+espn$value <- espn$Points-espn$rank
+
+
+```
+
+
+
+
+```{r}
+
+library(dplyr)
+
+#'[ Rusing, Recieving, Receptions, Anytime TD
+
+week <- read.csv("weekly projections.csv")
+
+tds <- week$Anytime.Touchdown.Scorer
+
+week <- week %>% select(-Anytime.Touchdown.Scorer)
+
+rushyds <- week[,1:3]
+recyds <- week[,4:6]
+receptions <- week[,7:9]
+
+rushyds <- rushyds[!(rushyds$OVER %in% c("", "OVER")),]
+
+recyds <- recyds[!(recyds$OVER.1 %in% c("", "OVER")),]
+
+receptions <- receptions[!(receptions$OVER.2 %in% c("", "OVER")),]
+
+rushyds$number <- substring(rushyds$OVER, 3)
+
+recyds$number <- substring(recyds$OVER, 3)
+
+receptions$number <- substring(receptions$OVER, 3)
+
+
+
+adjustments <- function(df){
+    
+  i <- 2
+  j <- 0
+  while(j != 1){
+    
+    if(as.numeric(df[i,2]) <= -130 & as.numeric(df[i,2]) >= -150){
+      
+      df[i-1,4] <- as.numeric(df[i-1,4])*1.05
+      
+    } 
+    
+    if(as.numeric(df[i,3]) <= -130 & as.numeric(df[i,3]) >= -150){
+      
+      df[i-1,4] <- as.numeric(df[i-1,4])*.95
+      
+    }
+    
+    
+    if(as.numeric(df[i,2]) <= -150){
+      
+      df[i-1,4] <- as.numeric(df[i-1,4])*1.1
+      
+    } 
+    
+    if(as.numeric(df[i,3]) <= -150){
+      
+      df[i-1,4] <- as.numeric(df[i-1,4])*.9
+      
+    }
+    
+    i <- i+2
+    if(i > nrow(df)){
+      j <- 1
+    }
+  }
+  
+  return(df)
+  
+}
+
+rushyds <- adjustments(rushyds)
+
+recyds <- adjustments(recyds)
+
+receptions <- adjustments(receptions)
+
+
+rushyds <- rushyds %>% select(PLAYER, number)
+recyds <- recyds %>% select(PLAYER.1, number)
+receptions <- receptions %>% select(PLAYER.2, number)
+
+
+
+getpct <- function(x){
+  
+  if(x < 0) {
+    
+    x <- abs(x)/(abs(x)+100)
+    
+  } else {
+    
+    x <- 100/(x+100)
+    
+  }
+  
+  return(x)
+}
+
+length(tds)
+
+tds <- tds[!(tds %in% c("", "at", "Anytime Touchdown Scorer"))]
+
+tds <- data.frame(tds)
+
+colnames(tds) <- c("Player")
+
+tds$exptd <- NA
+
+
+i <- 1
+while(i <= length(tds$Player)){
+  
+  if(!(is.na(as.numeric(tds$Player[i])))) {
+    
+  f <- function(lambda) abs(ppois(0, lambda, lower = FALSE) - getpct(as.numeric(tds$Player[i])))
+  tds$exptd[i-1] <- optimize(f, c(0, 10))$minimum
+  
+  }
+  
+  i <- i+1
+}
+
+
+tds <- na.omit(tds)
+
+projections <- left_join(tds, rushyds, by = c("Player" = "PLAYER"))
+
+projections <- left_join(projections, recyds, by = c("Player" = "PLAYER.1"))
+
+projections <- left_join(projections, receptions, by = c("Player" = "PLAYER.2"))
+
+projections[is.na(projections)] <- 0
+
+
+defense <- projections %>% filter(grepl("D/ST", Player))
+
+projections <- projections %>% filter(number != 0 | number.x != 0 | number.y != 0)
+
+projections$number.y <- as.numeric(projections$number.y)
+projections$number <- as.numeric(projections$number)
+projections$number.x <- as.numeric(projections$number.x)
+
+
+projections$number.y <- ifelse(projections$number.y == 0 & projections$number != 0, projections$number*12, projections$number.y)
+
+projections$number <- ifelse(projections$number == 0 & projections$number.y != 0 & projections$number.x == 0, projections$number.y/12, projections$number)
+
+projections$number <- ifelse(projections$number == 0 & projections$number.y != 0 & projections$number.x != 0, projections$number.y/8, projections$number)
+
+#'* CHANGE RECEPTION POINTS FOR PPR/NON PPR *
+
+projections$totalPPR <- (as.numeric(projections$number.x) * .1 + as.numeric(projections$number.y) * .1 + 1*as.numeric(projections$number) + as.numeric(projections$exptd)*6)
+
+
+projections$totalSTD <- (as.numeric(projections$number.x) * .1 + as.numeric(projections$number.y) * .1 + as.numeric(projections$exptd)*6)
+
+
+
+
+
+
+ppois(0, 1.19, lower = FALSE)
+
+230/330
+
+
+
+
+```
